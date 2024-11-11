@@ -5,18 +5,22 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+from urllib.parse import urlparse
 import time
+import json
 
-# Set up Chrome options and add a User-Agent string
+# Set up Chrome options and enable basic performance logging
 chrome_options = Options()
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})  # Enable network logging
 
-# Path to chromedriver
-driver_path = '/usr/local/bin/chromedriver'  # Ensure this path is correct
+# Path to ChromeDriver
+driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
 service = Service(driver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-search_queries = ["flu symptoms", "cancer symptoms", "stroke symptoms"]
+#search_queries = ["flu symptoms", "cancer symptoms", "stroke symptoms"]
+search_queries = ["cancer symptoms"]
 
 for query in search_queries:
     driver.get('https://www.google.com')
@@ -49,6 +53,46 @@ for query in search_queries:
     print("AI Overview Links:")
     for i, url in enumerate(ai_overview_urls, 1):
         print(f"{i}: {url}")
+
+    # Visit each URL and capture tracking requests
+    #for url in normal_urls + ai_overview_urls:
+    for url in normal_urls[:1]:
+        print(f"\nNowAnalyzing URL for trackers: {url}")
+        driver.get(url)
+
+        # Wait for a few seconds to allow page loading and tracker requests
+        time.sleep(3)
+
+        # Collect performance logs and filter third-party requests
+        logs = driver.get_log("performance")
+        third_party_domains = set()
+
+        # Define non-tracking resource types and patterns to filter out
+        excluded_extensions = (".png", ".jpg", ".jpeg", ".gif", ".css", ".svg", ".woff", ".woff2", ".ttf")
+        tracking_resource_types = ["Script", "XHR", "Fetch"]
+
+        for entry in logs:
+            log = json.loads(entry["message"])["message"]
+            if log["method"] == "Network.requestWillBeSent":
+                request_url = log["params"]["request"]["url"]
+                resource_type = log["params"].get("type", "Unknown")
+
+                # Filter based on URL and resource type
+                if (request_url and url not in request_url and  # Third-party request
+                    not request_url.lower().endswith(excluded_extensions) and  # Exclude images/styles
+                    resource_type in tracking_resource_types):  # Only tracking resource types
+
+                    # Extract the domain name from the URL
+                    domain = urlparse(request_url).netloc
+                    third_party_domains.add(domain)
+
+        # Print identified third-party tracker domains
+        if third_party_domains:
+            print("Third-Party Tracker Domains Found:")
+            for domain in third_party_domains:
+                print(domain)
+        else:
+            print("No third-party trackers found on this page.")
 
 # Close the driver
 driver.quit()
