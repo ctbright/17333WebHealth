@@ -8,6 +8,26 @@ from selenium.webdriver.common.keys import Keys
 from urllib.parse import urlparse
 import time
 import json
+from whotracksme.data.loader import DataSource
+
+
+data = DataSource(data_root=data_path)
+
+def get_tracker_info_from_data(domain):
+    """
+    Fetch tracker information from local WhoTracks.Me dataset for a given domain.
+    """
+    tracker_info = data.trackers.get(domain)
+    if tracker_info:
+        return {
+            "name": tracker_info.get("name"),
+            "owner": tracker_info.get("owner", {}).get("name"),
+            "category": tracker_info.get("category"),
+            "prevalence": tracker_info.get("prevalence")
+        }
+    else:
+        print(f"No data found for tracker: {domain}")
+        return None
 
 # Set up Chrome options and enable basic performance logging
 chrome_options = Options()
@@ -19,7 +39,6 @@ driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
 service = Service(driver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-#search_queries = ["flu symptoms", "cancer symptoms", "stroke symptoms"]
 search_queries = ["cancer symptoms"]
 
 for query in search_queries:
@@ -37,27 +56,15 @@ for query in search_queries:
     normal_links = driver.find_elements(By.XPATH, "(//h3/ancestor::a)[position() <= 3]")
     normal_urls = [link.get_attribute('href') for link in normal_links]
 
-    # Collect the first 3 AI overview links if present
-    try:
-        ai_overview_elements = driver.find_elements(By.XPATH, "(//li[contains(@class, 'LLtSOc')]//a[contains(@class, 'KEVENd')])[position() <= 3]")
-        ai_overview_urls = [element.get_attribute('href') for element in ai_overview_elements]
-    except:
-        ai_overview_urls = []
-
     # Print results
     print(f"\nSearch results for '{query}':")
     print("Normal Links:")
     for i, url in enumerate(normal_urls, 1):
         print(f"{i}: {url}")
 
-    print("AI Overview Links:")
-    for i, url in enumerate(ai_overview_urls, 1):
-        print(f"{i}: {url}")
-
     # Visit each URL and capture tracking requests
-    #for url in normal_urls + ai_overview_urls:
-    for url in normal_urls[:1]:
-        print(f"\nNowAnalyzing URL for trackers: {url}")
+    for url in normal_urls[:1]:  # Limit to first URL for testing
+        print(f"\nNow Analyzing URL for trackers: {url}")
         driver.get(url)
 
         # Wait for a few seconds to allow page loading and tracker requests
@@ -84,13 +91,21 @@ for query in search_queries:
 
                     # Extract the domain name from the URL
                     domain = urlparse(request_url).netloc
-                    third_party_domains.add(domain)
+                    # Simplify the domain to only the last two segments (e.g., googleapis.com)
+                    simplified_domain = '.'.join(domain.split('.')[-2:])
+                    third_party_domains.add(simplified_domain)
 
-        # Print identified third-party tracker domains
+        # Print detailed information for the first identified tracker
         if third_party_domains:
-            print("Third-Party Tracker Domains Found:")
-            for domain in third_party_domains:
-                print(domain)
+            first_tracker = list(third_party_domains)[0]
+            print(f"\nFirst Tracker Domain: {first_tracker}")
+            tracker_info = get_tracker_info_from_data(first_tracker)
+            if tracker_info:
+                print("Tracker Information:")
+                print(f"Name: {tracker_info['name']}")
+                print(f"Company: {tracker_info['owner']}")
+                print(f"Category: {tracker_info['category']}")
+                print(f"Prevalence: {tracker_info['prevalence']}")
         else:
             print("No third-party trackers found on this page.")
 
