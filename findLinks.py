@@ -14,48 +14,42 @@ from collections import defaultdict
 # Initialize data source
 data = DataSource()
 
-def get_tracker_id_from_url(url):
+def get_tracker_id_from_domain(domain):
     """
-    Retrieve the tracker ID associated with a given URL's domain.
+    Retrieve the tracker ID associated with a given domain.
     """
-    domain = urlparse(url).netloc
     if domain.startswith("www."):
-        domain = domain[4:]  # Remove 'www.' for matching
-    
+        domain = domain[4:]
+
+    # Query using LIKE for partial matching
     query = "SELECT tracker FROM tracker_domains WHERE domain LIKE ?"
     result = data.db.connection.execute(query, ('%' + domain + '%',)).fetchone()
-    
+
     return result[0] if result else None
 
 def get_tracker_info_from_data(domain):
     """
     Fetch tracker information from WhoTracks.Me dataset for a given domain.
     """
-    tracker_id = get_tracker_id_from_url(domain)
+    tracker_id = get_tracker_id_from_domain(domain)
     if tracker_id:
         tracker_info = data.trackers.get_tracker(tracker_id)
         if tracker_info:
-            return {
-                "name": tracker_info.get("name"),
-                "category": tracker_info.get("category"),
-            }
+            return tracker_info.get("category")
     return None
 
 # Set up Chrome options and enable basic performance logging
 chrome_options = Options()
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})  # Enable network logging
+chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
 # Path to ChromeDriver
 driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
 service = Service(driver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# Dictionary to hold tracker counts by category for each URL type
-tracker_counts_total = defaultdict(int)
-
 # Sample search query
-search_queries = ["cancer symptoms"]
+search_queries = ["flu symptoms", "cancer symptoms", "stroke symptoms"]
 
 for query in search_queries:
     driver.get('https://www.google.com')
@@ -74,33 +68,23 @@ for query in search_queries:
     normal_urls = [link.get_attribute('href') for link in normal_links]
     ai_overview_urls = [element.get_attribute('href') for element in ai_overview_elements]
 
-    # Print out categories
-    print(f"\nSearch results for '{query}':")
-    print("Normal Links:")
-    for i, url in enumerate(normal_urls, 1):
-        print(f"{i}: {url}")
-        
-    print("AI Overview Links:")
-    for i, url in enumerate(ai_overview_urls, 1):
-        print(f"{i}: {url}")
+    # Initialize dictionaries for storing tracker data
+    tracker_counts_by_category_normal = defaultdict(int)
+    tracker_counts_by_category_ai = defaultdict(int)
+    total_trackers_normal = 0
+    total_trackers_ai = 0
 
-    # Analyze trackers for each URL
+    # Analyze trackers for each URL type
     url_types = {
-        "Normal": normal_urls,
-        "AI Overview": ai_overview_urls
+        "Normal": (normal_urls, tracker_counts_by_category_normal, total_trackers_normal),
+        "AI Overview": (ai_overview_urls, tracker_counts_by_category_ai, total_trackers_ai)
     }
 
-    for url_type, urls in url_types.items():
-        print(f"\nAnalyzing {url_type} URLs for trackers:\n")
-        
+    for url_type, (urls, tracker_counts_by_category, total_trackers) in url_types.items():
         for url in urls:
-            print(f"\nNow Analyzing URL: {url}")
             driver.get(url)
             time.sleep(3)  # Allow time for loading
             
-            # Dictionary to hold tracker counts by category for the current URL
-            tracker_counts = defaultdict(int)
-
             # Collect performance logs and filter third-party requests
             logs = driver.get_log("performance")
             third_party_domains = set()
@@ -122,21 +106,34 @@ for query in search_queries:
 
             # Process each tracker domain and update counts
             for domain in third_party_domains:
-                tracker_info = get_tracker_info_from_data(domain)
-                if tracker_info:
-                    category = tracker_info["category"]
-                    tracker_counts[category] += 1
-                    tracker_counts_total[category] += 1  # Also add to total counts across all URLs
+                category = get_tracker_info_from_data(domain)
+                if category:
+                    tracker_counts_by_category[category] += 1
+                    total_trackers += 1
 
-            # Print the tracker count for each category for the current URL
-            print(f"\nTracker Categories for URL {url}:")
-            for category, count in tracker_counts.items():
-                print(f"{category}: {count}")
+        # Store the total tracker count
+        if url_type == "Normal":
+            total_trackers_normal = total_trackers
+        else:
+            total_trackers_ai = total_trackers
 
-# Print total tracker counts across all URLs
-print("\nTotal Tracker Counts Across All URLs:")
-for category, count in tracker_counts_total.items():
-    print(f"{category}: {count}")
+    # Print summary
+    print(f"\nQuery: '{query}'")
+    print("AI Overview:")
+    print(f"Number of AI Overview sites: {len(ai_overview_urls)}")
+    print("Tracker counts by category:")
+    for category, count in tracker_counts_by_category_ai.items():
+        print(f"  {category}: {count}")
+    avg_trackers_ai = total_trackers_ai / len(ai_overview_urls) if ai_overview_urls else 0
+    print(f"Average trackers per AI Overview site: {avg_trackers_ai:.2f}")
+
+    print("\nNormal Results:")
+    print(f"Number of Normal sites: {len(normal_urls)}")
+    print("Tracker counts by category:")
+    for category, count in tracker_counts_by_category_normal.items():
+        print(f"  {category}: {count}")
+    avg_trackers_normal = total_trackers_normal / len(normal_urls) if normal_urls else 0
+    print(f"Average trackers per Normal site: {avg_trackers_normal:.2f}")
 
 # Close the driver
 driver.quit()
