@@ -9,22 +9,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
 
-def get_links_and_trackers(query):
-    # Set up Chrome options
-
-
-    # Path to ChromeDriver
-    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
-    service = Service(driver_path)
-    driver = webdriver.Chrome(service=service)
-
+def get_links_and_trackers(query, driver):
+    """
+    Fetch normal URLs and AI Overview URLs from a Google search using the provided WebDriver.
+    
+    :param query: Search query string.
+    :param driver: Selenium WebDriver instance to use for the search.
+    :return: A tuple of two lists: (normal_urls, ai_urls).
+    """
     # Open Google and perform search
     driver.get("https://www.google.com")
     search_box = driver.find_element(By.NAME, "q")
     search_box.send_keys(query)
     search_box.send_keys(Keys.RETURN)
 
-    # Wait for search results
+    # Wait for search results to load
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//a")))
 
     # Extract normal search results (top 3)
@@ -51,19 +50,31 @@ def get_links_and_trackers(query):
         except Exception as e:
             print(f"Could not fetch AI overview section HTML: {e}")
 
-    driver.quit()
     return normal_urls, ai_urls
 
 
 # Test the function
 if __name__ == "__main__":
-    test_query = "flu symptoms"
-    normal_urls, ai_overview_urls = get_links_and_trackers(test_query)
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
 
-    print("Normal Links:")
-    for i, url in enumerate(normal_urls, 1):
-        print(f"{i}: {url}")
+    # Set up ChromeDriver
+    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
+    service = Service(driver_path)
+    options = Options()
+    driver = webdriver.Chrome(service=service, options=options)
 
-    print("\nAI Overview Links:")
-    for i, url in enumerate(ai_overview_urls, 1):
-        print(f"{i}: {url}")
+    try:
+        test_query = "stroke symptoms"
+        normal_urls, ai_overview_urls = get_links_and_trackers(test_query, driver)
+
+        print("Normal Links:")
+        for i, url in enumerate(normal_urls, 1):
+            print(f"{i}: {url}")
+
+        print("\nAI Overview Links:")
+        for i, url in enumerate(ai_overview_urls, 1):
+            print(f"{i}: {url}")
+    finally:
+        driver.quit()
