@@ -1,5 +1,3 @@
-# get_tracker_info.py
-
 import time
 import json
 from collections import defaultdict
@@ -99,6 +97,44 @@ def analyze_trackers(normal_urls, ai_overview_urls):
 
     driver.quit()  # Close the WebDriver
     return tracker_data
+
+# Mapping from raw tracker category names to formatted CSV column names
+CATEGORY_MAPPING = {
+    "advertising": "Advertising",
+    "site_analytics": "Site Analytics",
+    "consent": "Consent Management",
+    "essential": "Essential",
+    "hosting": "Hosting",
+    "customer_interaction": "Customer Interaction",
+    "audio_video_player": "Audio/Video Player",
+    "extensions": "Extensions",
+    "adult_advertising": "Adult Advertising",
+    "social_media": "Social Media",
+    "misc": "Miscellaneous",
+    "uncategorized": "Uncategorized"
+}
+
+def summarize_tracker_data(query, tracker_data, tracker_categories):
+    """
+    Summarize tracker data for a single query into a structured dictionary for CSV output.
+
+    :param query: Search query string.
+    :param tracker_data: Dictionary containing tracker analysis results.
+    :param tracker_categories: List of tracker categories to include in the summary.
+    :return: Dictionary containing summary data for the query.
+    """
+    summary = {"Query": query}
+
+    for url_type, data in tracker_data.items():
+        avg_trackers = data["total_trackers"] / len(data["urls"]) if data["urls"] else 0
+        summary[f"{url_type}_Average"] = avg_trackers
+
+        # Map and summarize tracker counts
+        for raw_category, formatted_category in CATEGORY_MAPPING.items():
+            tracker_count = data["tracker_counts"].get(raw_category, 0)
+            summary[f"{url_type}_{formatted_category}"] = tracker_count / len(data["urls"]) if data["urls"] else 0
+
+    return summary
 
 def print_summary(query, tracker_data):
     """
