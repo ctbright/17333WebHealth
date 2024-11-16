@@ -9,15 +9,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
 def get_links_and_trackers(query):
-    # Set up Chrome options
+    # Set up Chrome options and enable basic performance logging
     chrome_options = Options()
-    chrome_options.add_argument("user-agent=Mozilla/5.0")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
     chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
-    driver_path = '/usr/local/bin/chromedriver'
+    # Path to ChromeDriver
+    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=chrome_options)
-    
+
     driver.get('https://www.google.com')
     search_box = driver.find_element(By.NAME, 'q')
     search_box.send_keys(query)

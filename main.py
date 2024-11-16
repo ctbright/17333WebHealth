@@ -1,6 +1,6 @@
 # main.py
 
-from get_links_trackers import get_links_and_trackers
+from findLinks import get_links_and_trackers
 from get_tracker_info import analyze_trackers, print_summary
 
 def main():

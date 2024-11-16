@@ -6,7 +6,10 @@ from collections import defaultdict
 from urllib.parse import urlparse
 from whotracksme.data.loader import DataSource
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
+# Initialize data source
 data = DataSource()
 
 def get_tracker_id_from_domain(domain):
@@ -25,11 +28,15 @@ def get_tracker_info_from_data(domain):
     return None
 
 def analyze_trackers(normal_urls, ai_overview_urls):
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("user-agent=Mozilla/5.0")
+    # Set up Chrome options and enable basic performance logging
+    chrome_options = Options()
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
     chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
-    driver_path = '/usr/local/bin/chromedriver'
-    driver = webdriver.Chrome(executable_path=driver_path, options=chrome_options)
+
+    # Path to ChromeDriver
+    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
+    service = Service(driver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
     tracker_data = {
         "Normal": {"urls": normal_urls, "tracker_counts": defaultdict(int), "total_trackers": 0},
