@@ -6,7 +6,7 @@ from whotracksme.data.loader import DataSource
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-
+from whotracksme.data.loader import DataSource
 # Initialize data source for the WhoTracksMe dataset
 data = DataSource()
 
@@ -37,66 +37,106 @@ def get_tracker_info_from_data(domain):
             return tracker_info.get("category")
     return None
 
+import time
+import json
+from collections import defaultdict
+from urllib.parse import urlparse
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from whotracksme.data.loader import DataSource
+
+# Initialize data source for the WhoTracksMe dataset
+data = DataSource()
+
+def get_tracker_id_from_domain(domain):
+    if domain.startswith("www."):
+        domain = domain[4:]
+    query = "SELECT tracker FROM tracker_domains WHERE domain LIKE ?"
+    result = data.db.connection.execute(query, ('%' + domain + '%',)).fetchone()
+    return result[0] if result else None
+
+def get_tracker_info_from_data(domain):
+    tracker_id = get_tracker_id_from_domain(domain)
+    if tracker_id:
+        tracker_info = data.trackers.get_tracker(tracker_id)
+        if tracker_info:
+            return tracker_info.get("category")
+    return None
+
+def scroll_to_bottom(driver):
+    """
+    Scrolls to the bottom of the page to ensure all content is loaded.
+    """
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    while True:
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)  # Allow time for content to load
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:
+            break
+        last_height = new_height
+
 def analyze_trackers(normal_urls, ai_overview_urls):
     """
-    Analyze third-party trackers on websites by examining network requests logged in Chrome's performance API.
+    Analyze third-party trackers on websites.
 
     :param normal_urls: List of URLs from standard search results.
     :param ai_overview_urls: List of URLs from AI Overview sections.
     :return: Dictionary with tracker data for both normal and AI Overview URLs.
     """
-    # Configure Selenium WebDriver with performance logging enabled
+    # Set up ChromeDriver with performance logging enabled
+    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
+    service = Service(driver_path)
     chrome_options = Options()
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
     chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
-
-    # Set up ChromeDriver
-    driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
-    service = Service(driver_path)
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # Initialize a data structure to store tracker data for each URL type
     tracker_data = {
         "Normal": {"urls": normal_urls, "tracker_counts": defaultdict(int), "total_trackers": 0},
         "AI Overview": {"urls": ai_overview_urls, "tracker_counts": defaultdict(int), "total_trackers": 0}
     }
 
-    # Process each URL type (Normal and AI Overview)
-    for url_type, data in tracker_data.items():
-        for url in data["urls"]:
-            driver.get(url)  # Navigate to the URL
-            time.sleep(3)  # Allow resources to load
-            
-            # Fetch Chrome performance logs
-            logs = driver.get_log("performance")
-            third_party_domains = set()
-            excluded_extensions = (".png", ".jpg", ".jpeg", ".gif", ".css", ".svg", ".woff", ".woff2", ".ttf")
-            tracking_resource_types = ["Script", "XHR", "Fetch"]  # Common types for tracking
+    try:
+        for url_type, data in tracker_data.items():
+            for url in data["urls"]:
+                try:
+                    driver.get(url)  # Navigate to the URL
+                    scroll_to_bottom(driver)  # Ensure all content is loaded
 
-            # Analyze network logs for third-party requests
-            for entry in logs:
-                log = json.loads(entry["message"])["message"]
-                if log["method"] == "Network.requestWillBeSent":
-                    request_url = log["params"]["request"]["url"]
-                    resource_type = log["params"].get("type", "Unknown")
-                    
-                    # Check if the request matches tracking criteria
-                    if (request_url and url not in request_url and
-                        not request_url.lower().endswith(excluded_extensions) and
-                        resource_type in tracking_resource_types):
-                        domain = urlparse(request_url).netloc
-                        simplified_domain = '.'.join(domain.split('.')[-2:])  # Simplify to root domain
-                        third_party_domains.add(simplified_domain)
+                    logs = driver.get_log("performance")
+                    third_party_domains = set()
+                    excluded_extensions = (".png", ".jpg", ".jpeg", ".gif", ".css", ".svg", ".woff", ".woff2", ".ttf")
+                    tracking_resource_types = ["Script", "XHR", "Fetch"]
 
-            # Map third-party domains to tracker categories
-            for domain in third_party_domains:
-                category = get_tracker_info_from_data(domain)
-                if category:
-                    data["tracker_counts"][category] += 1
-                    data["total_trackers"] += 1
+                    for entry in logs:
+                        log = json.loads(entry["message"])["message"]
+                        if log["method"] == "Network.requestWillBeSent":
+                            request_url = log["params"]["request"]["url"]
+                            resource_type = log["params"].get("type", "Unknown")
+                            if (request_url and url not in request_url and
+                                    not request_url.lower().endswith(excluded_extensions) and
+                                    resource_type in tracking_resource_types):
+                                domain = urlparse(request_url).netloc
+                                simplified_domain = '.'.join(domain.split('.')[-2:])
+                                third_party_domains.add(simplified_domain)
 
-    driver.quit()  # Close the WebDriver
+                    for domain in third_party_domains:
+                        category = get_tracker_info_from_data(domain)
+                        if category:
+                            data["tracker_counts"][category] += 1
+                            data["total_trackers"] += 1
+                except Exception as e:
+                    print(f"Error analyzing URL {url}: {e}")
+
+    finally:
+        # Quit the WebDriver to release resources
+        driver.quit()
+
     return tracker_data
+
+
 
 # Mapping from raw tracker category names to formatted CSV column names
 CATEGORY_MAPPING = {

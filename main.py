@@ -1,5 +1,5 @@
 import csv
-from findLinks import get_links_and_trackers
+from get_links import get_links  
 from get_tracker_info import analyze_trackers, summarize_tracker_data
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -8,7 +8,7 @@ from collections import defaultdict
 
 def main():
     # List of search queries
-    search_queries = ["flu symptoms", "cancer symptoms", "stroke symptoms"]
+    search_queries = ["flu symptoms"]#, "cancer symptoms", "stroke symptoms"]
 
     # Define tracker categories for the CSV columns
     tracker_categories = [
@@ -24,6 +24,10 @@ def main():
     driver_path = '/usr/local/bin/chromedriver'
     service = Service(driver_path)
     options = Options()
+    options.add_argument("start-maximized")
+    options.add_argument("--headless")  # Use headless mode if you don't need the browser window
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
@@ -46,7 +50,7 @@ def main():
                 print(f"Processing query: {query}")
                 
                 # Get URLs
-                normal_urls, ai_overview_urls = get_links_and_trackers(query, driver)
+                normal_urls, ai_overview_urls = get_links(query)
                 
                 # Analyze trackers
                 tracker_data = analyze_trackers(normal_urls, ai_overview_urls)
