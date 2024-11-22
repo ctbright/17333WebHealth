@@ -1,5 +1,5 @@
 # get_links_trackers.py
-
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,10 +9,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
 
+
+
 def get_links_and_trackers(query, driver):
     """
     Fetch normal URLs and AI Overview URLs from a Google search using the provided WebDriver.
-    
+    Scrolls to the bottom of each URL to ensure full content is loaded.
+
     :param query: Search query string.
     :param driver: Selenium WebDriver instance to use for the search.
     :return: A tuple of two lists: (normal_urls, ai_urls).
@@ -31,27 +34,32 @@ def get_links_and_trackers(query, driver):
     normal_urls = [link.get_attribute("href") for link in normal_links]
 
     # Extract AI overview links
-    ai_overview_section = None  # Initialize variable
+    ai_overview_section = None
     ai_urls = []
     try:
-        # Main container for AI overview
         ai_overview_section = driver.find_element(By.XPATH, "//div[contains(@class, 'fx92l')]")
-        # Extract visible links
         ai_overview_links = ai_overview_section.find_elements(By.XPATH, ".//a[@class='KEVENd']")
         ai_urls = [link.get_attribute("href") for link in ai_overview_links if link.is_displayed()]
     except Exception as e:
         print(f"Error locating AI overview links: {e}")
 
-    # Debugging: Log elements if no links are found
-    if not ai_urls and ai_overview_section:
-        print("AI Overview Section HTML:")
-        try:
-            print(ai_overview_section.get_attribute("outerHTML"))
-        except Exception as e:
-            print(f"Could not fetch AI overview section HTML: {e}")
+    # Scroll to the bottom of each URL to ensure all content loads
+    for url_list in [normal_urls, ai_urls]:
+        for url in url_list:
+            try:
+                driver.get(url)
+                last_height = driver.execute_script("return document.body.scrollHeight")
+                while True:
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(2)  # Allow time for content to load
+                    new_height = driver.execute_script("return document.body.scrollHeight")
+                    if new_height == last_height:
+                        break
+                    last_height = new_height
+            except Exception as e:
+                print(f"Error scrolling URL {url}: {e}")
 
     return normal_urls, ai_urls
-
 
 # Test the function
 if __name__ == "__main__":
