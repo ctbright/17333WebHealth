@@ -207,12 +207,6 @@ If a tracker category is not in `CATEGORY_MAPPING`, it will not be included in t
 
 ---
 
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
 ## Acknowledgments
 
 - **Selenium** for making browser automation straightforward.
