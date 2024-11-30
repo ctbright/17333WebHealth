@@ -72,7 +72,13 @@ def analyze_trackers(normal_urls, ai_overview_urls):
     try:
         for url_type, urls in [("Normal", normal_urls), ("AI Overview", ai_overview_urls)]:
             for position, url in enumerate(urls, start=1):
-                tracker_data = {"Type": url_type, "Position": position, "URL": url, "Total Trackers": 0}
+                tracker_data = {
+                    "Type": url_type,
+                    "Position": position,
+                    "URL": url,
+                    "Total Trackers": 0,
+                    "Tracker Names": []  # List of tracker names for detailed CSV
+                }
                 for formatted_category in CATEGORY_MAPPING.values():
                     tracker_data[formatted_category] = 0  # Initialize all categories to 0
 
@@ -98,6 +104,7 @@ def analyze_trackers(normal_urls, ai_overview_urls):
                                 third_party_domains.add(simplified_domain)
 
                     tracker_data["Total Trackers"] = len(third_party_domains)
+                    tracker_data["Tracker Names"] = list(third_party_domains)  # Populate tracker names
 
                     # Count trackers by category using CATEGORY_MAPPING
                     for domain in third_party_domains:
@@ -115,6 +122,7 @@ def analyze_trackers(normal_urls, ai_overview_urls):
         driver.quit()
 
     return tracker_details
+
 
 
 
