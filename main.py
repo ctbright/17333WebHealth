@@ -3,6 +3,21 @@ from get_links import get_links
 from get_tracker_info import analyze_trackers
 from collections import defaultdict
 
+CATEGORY_MAPPING = {
+    "advertising": "Advertising",
+    "site_analytics": "Site Analytics",
+    "consent": "Consent Management",
+    "essential": "Essential",
+    "hosting": "Hosting",
+    "customer_interaction": "Customer Interaction",
+    "audio_video_player": "Audio/Video Player",
+    "extensions": "Extensions",
+    "adult_advertising": "Adult Advertising",
+    "social_media": "Social Media",
+    "misc": "Miscellaneous",
+    "uncategorized": "Uncategorized"
+}
+
 def main():
     # List of search queries
     search_queries = ['anderson', 'anemia']
@@ -11,7 +26,7 @@ def main():
     output_csv = "tracker_summary_detailed.csv"
 
     # Start with base headers
-    headers = ["Query", "URL", "Type", "Position", "Total Trackers"]
+    headers = ["Query", "URL", "Type", "Position", "Total Trackers"] + list(CATEGORY_MAPPING.values())
     queries_without_ai_links = []  # To keep track of queries without AI overview links
 
     # Open the CSV file for writing
@@ -37,20 +52,17 @@ def main():
             
             # Write each link's data to the CSV
             for tracker_entry in detailed_tracker_data:
-                tracker_entry["Query"] = query  # Add the query to each entry
-                
-                # Add any new categories dynamically to the headers
-                for category in tracker_entry.keys():
-                    if category not in headers:
-                        headers.append(category)
-                        
-                        # Reinitialize the CSV writer with updated headers
-                        writer = csv.DictWriter(csvfile, fieldnames=headers)
-                        csvfile.seek(0)  # Go back to the beginning of the file
-                        writer.writeheader()  # Rewrite header row with new fields
-                
-                # Write the tracker entry to the file
-                writer.writerow(tracker_entry)
+                # Add the query to each entry
+                tracker_entry["Query"] = query
+
+                # Filter tracker categories to only include those in CATEGORY_MAPPING
+                filtered_entry = {
+                    key: value for key, value in tracker_entry.items()
+                    if key in headers
+                }
+
+                # Write the filtered tracker entry to the file
+                writer.writerow(filtered_entry)
 
     # Print queries without AI overview links
     if queries_without_ai_links:
