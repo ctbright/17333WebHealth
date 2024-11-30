@@ -1,3 +1,4 @@
+#get_tracker_info.py
 import time
 import json
 from collections import defaultdict
@@ -37,33 +38,6 @@ def get_tracker_info_from_data(domain):
             return tracker_info.get("category")
     return None
 
-import time
-import json
-from collections import defaultdict
-from urllib.parse import urlparse
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from whotracksme.data.loader import DataSource
-
-# Initialize data source for the WhoTracksMe dataset
-data = DataSource()
-
-def get_tracker_id_from_domain(domain):
-    if domain.startswith("www."):
-        domain = domain[4:]
-    query = "SELECT tracker FROM tracker_domains WHERE domain LIKE ?"
-    result = data.db.connection.execute(query, ('%' + domain + '%',)).fetchone()
-    return result[0] if result else None
-
-def get_tracker_info_from_data(domain):
-    tracker_id = get_tracker_id_from_domain(domain)
-    if tracker_id:
-        tracker_info = data.trackers.get_tracker(tracker_id)
-        if tracker_info:
-            return tracker_info.get("category")
-    return None
-
 def scroll_to_bottom(driver):
     """
     Scrolls to the bottom of the page to ensure all content is loaded.
@@ -83,7 +57,7 @@ def analyze_trackers(normal_urls, ai_overview_urls):
 
     :param normal_urls: List of URLs from standard search results.
     :param ai_overview_urls: List of URLs from AI Overview sections.
-    :return: Dictionary with tracker data for both normal and AI Overview URLs.
+    :return: Detailed list of tracker data for each URL.
     """
     # Set up ChromeDriver with performance logging enabled
     driver_path = '/usr/local/bin/chromedriver'  # Update if necessary
@@ -93,14 +67,12 @@ def analyze_trackers(normal_urls, ai_overview_urls):
     chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    tracker_data = {
-        "Normal": {"urls": normal_urls, "tracker_counts": defaultdict(int), "total_trackers": 0},
-        "AI Overview": {"urls": ai_overview_urls, "tracker_counts": defaultdict(int), "total_trackers": 0}
-    }
+    tracker_details = []  # Store detailed data for each URL
 
     try:
-        for url_type, data in tracker_data.items():
-            for url in data["urls"]:
+        for url_type, urls in [("Normal", normal_urls), ("AI Overview", ai_overview_urls)]:
+            for url in urls:
+                tracker_data = {"Type": url_type, "URL": url}
                 try:
                     driver.get(url)  # Navigate to the URL
                     scroll_to_bottom(driver)  # Ensure all content is loaded
@@ -122,19 +94,24 @@ def analyze_trackers(normal_urls, ai_overview_urls):
                                 simplified_domain = '.'.join(domain.split('.')[-2:])
                                 third_party_domains.add(simplified_domain)
 
+                    tracker_data["Total Trackers"] = len(third_party_domains)
+
+                    # Count trackers by category
                     for domain in third_party_domains:
                         category = get_tracker_info_from_data(domain)
                         if category:
-                            data["tracker_counts"][category] += 1
-                            data["total_trackers"] += 1
+                            tracker_data[category] = tracker_data.get(category, 0) + 1
+
                 except Exception as e:
-                    print(f"Error analyzing URL {url}: {e}")
+                    tracker_data["Error"] = str(e)
+
+                tracker_details.append(tracker_data)
 
     finally:
-        # Quit the WebDriver to release resources
         driver.quit()
 
-    return tracker_data
+    return tracker_details
+
 
 
 
