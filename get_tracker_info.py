@@ -71,8 +71,11 @@ def analyze_trackers(normal_urls, ai_overview_urls):
 
     try:
         for url_type, urls in [("Normal", normal_urls), ("AI Overview", ai_overview_urls)]:
-            for url in urls:
-                tracker_data = {"Type": url_type, "URL": url}
+            for position, url in enumerate(urls, start=1):
+                tracker_data = {"Type": url_type, "Position": position, "URL": url, "Total Trackers": 0}
+                for formatted_category in CATEGORY_MAPPING.values():
+                    tracker_data[formatted_category] = 0  # Initialize all categories to 0
+
                 try:
                     driver.get(url)  # Navigate to the URL
                     scroll_to_bottom(driver)  # Ensure all content is loaded
@@ -96,11 +99,12 @@ def analyze_trackers(normal_urls, ai_overview_urls):
 
                     tracker_data["Total Trackers"] = len(third_party_domains)
 
-                    # Count trackers by category
+                    # Count trackers by category using CATEGORY_MAPPING
                     for domain in third_party_domains:
                         category = get_tracker_info_from_data(domain)
-                        if category:
-                            tracker_data[category] = tracker_data.get(category, 0) + 1
+                        if category and category in CATEGORY_MAPPING:
+                            formatted_category = CATEGORY_MAPPING[category]
+                            tracker_data[formatted_category] += 1
 
                 except Exception as e:
                     tracker_data["Error"] = str(e)
@@ -111,6 +115,7 @@ def analyze_trackers(normal_urls, ai_overview_urls):
         driver.quit()
 
     return tracker_details
+
 
 
 

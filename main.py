@@ -1,33 +1,22 @@
 import csv
-from get_links import get_links  
+from get_links import get_links
 from get_tracker_info import analyze_trackers
 from collections import defaultdict
 
-CATEGORY_MAPPING = {
-    "advertising": "Advertising",
-    "site_analytics": "Site Analytics",
-    "consent": "Consent Management",
-    "essential": "Essential",
-    "hosting": "Hosting",
-    "customer_interaction": "Customer Interaction",
-    "audio_video_player": "Audio/Video Player",
-    "extensions": "Extensions",
-    "adult_advertising": "Adult Advertising",
-    "social_media": "Social Media",
-    "misc": "Miscellaneous",
-    "uncategorized": "Uncategorized"
-}
-
 def main():
     # List of search queries
-    search_queries = ['anderson', 'anemia']
+    search_queries = ['anderson', 'anemia', 'flu symptoms']
     
     # Define the output CSV file path
     output_csv = "tracker_summary_detailed.csv"
 
     # Start with base headers
-    headers = ["Query", "URL", "Type", "Position", "Total Trackers"] + list(CATEGORY_MAPPING.values())
+    headers = ["Query", "URL", "Type", "Position", "Total Trackers"]
     queries_without_ai_links = []  # To keep track of queries without AI overview links
+
+    # Extend headers with category names from CATEGORY_MAPPING
+    from get_tracker_info import CATEGORY_MAPPING
+    headers.extend(CATEGORY_MAPPING.values())
 
     # Open the CSV file for writing
     with open(output_csv, "w", newline="") as csvfile:
@@ -52,17 +41,8 @@ def main():
             
             # Write each link's data to the CSV
             for tracker_entry in detailed_tracker_data:
-                # Add the query to each entry
-                tracker_entry["Query"] = query
-
-                # Filter tracker categories to only include those in CATEGORY_MAPPING
-                filtered_entry = {
-                    key: value for key, value in tracker_entry.items()
-                    if key in headers
-                }
-
-                # Write the filtered tracker entry to the file
-                writer.writerow(filtered_entry)
+                tracker_entry["Query"] = query  # Add the query to each entry
+                writer.writerow({k: tracker_entry.get(k, 0) for k in headers})
 
     # Print queries without AI overview links
     if queries_without_ai_links:
