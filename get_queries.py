@@ -30,6 +30,13 @@ def get_top_queries_from_csv(file_path, top_n=25):
 # Test Case
 if __name__ == "__main__":
     # Example usage
-    file_path = ""  # Update with your file's path
-    top_queries = get_top_queries_from_csv(file_path)
+    file_path1 = "/Users/chloebright/Downloads/Queries/GeneticDisordersQueries.csv"
+    file_path2 = "/Users/chloebright/Downloads/Queries/Drug&AlcoholTreatmentQueries.csv"
+    file_path3 = "/Users/chloebright/Downloads/Queries/MentalHealthQueries.csv"
+    file_path4 = "/Users/chloebright/Downloads/Queries/ReproductiveHealthQueries.csv"
+    file_path5 = "/Users/chloebright/Downloads/Queries/Aging&Geriatrics.csv"
+    file_path6 = "/Users/chloebright/Downloads/Queries/sleepdisorders"
+    file_path7 = "/Users/chloebright/Downloads/Queries/pain management"
+    top_queries = get_top_queries_from_csv(file_path1) + get_top_queries_from_csv(file_path2) +get_top_queries_from_csv(file_path3) + get_top_queries_from_csv(file_path4) + get_top_queries_from_csv(file_path5) + get_top_queries_from_csv(file_path6) + get_top_queries_from_csv(file_path7)
     print("Top Queries:", top_queries)
+    print(len(top_queries))
